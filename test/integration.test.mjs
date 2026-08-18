@@ -594,6 +594,37 @@ check("browser half loads under the module loader and registers the lan-access c
 	assert.strictEqual(typeof registrations[0].component, "function");
 });
 
+console.log("uninstall reversibility:");
+check("disposing the gate restores the original request/upgrade listeners", async () => {
+	const { wrapServer } = await import("../lib/auth.js");
+	let requests = 0;
+	const srv = createServer((req, res) => {
+		requests += 1;
+		res.writeHead(200, { "content-type": "text/plain" });
+		res.end("original-handler");
+	});
+	srv.on("upgrade", (req, socket) => {
+		socket.write("HTTP/1.1 101 Switching Protocols\r\n\r\n");
+		socket.end();
+	});
+	await new Promise((resolve) => srv.listen(0, "127.0.0.1", resolve));
+	const p = srv.address().port;
+
+	// gate active: unauthenticated request is intercepted (302 to /login)
+	const disposer = wrapServer(srv, { password: "secret" }, {});
+	const gated = await fetch(`http://127.0.0.1:${p}/anything`, { redirect: "manual" });
+	assert.strictEqual(gated.status, 302, "gate intercepts before disposal");
+	assert.strictEqual(requests, 0, "original handler not reached while gated");
+
+	// dispose: the original handler must be restored
+	disposer();
+	const open = await fetch(`http://127.0.0.1:${p}/anything`);
+	assert.strictEqual(open.status, 200);
+	assert.strictEqual(await open.text(), "original-handler");
+	assert.strictEqual(requests, 1, "original handler reached after disposal");
+	await new Promise((resolve) => srv.close(resolve));
+});
+
 await new Promise((resolve) => stub.close(resolve));
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

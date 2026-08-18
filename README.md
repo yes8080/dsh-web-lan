@@ -64,6 +64,25 @@ password **`123`** (change it as soon as possible from the settings page).
 - 只在可信的主机名/IP 上登录（DNS rebinding）；
 - 登录后拥有完整权限（含可执行命令的 agent 工具）。
 
+## 卸载 / Uninstall
+
+```bash
+dsh plugin --profile web remove dsh-web-lan
+# 重启 dsh 生效
+npm exec @deepseek-ai/dsh web
+```
+
+卸载后自动恢复：webserver 监听回到默认 `127.0.0.1`（局域网访问关闭）、
+`lan-access` 行/登录门/浏览器卡片全部移除，**不影响其他插件**（插件只包装
+webserver 请求处理并注册自己的设置命名空间，卸载即还原）。可选清理残留数据：
+
+```bash
+# 删除设置文档中的 lan-access 段（如曾在页面改过密码）
+# 编辑 ~/.dsh/settings.yaml，删除 lan-access: 段
+# 删除登录会话文件（让旧会话令牌全部失效）
+rm ~/.dsh/dsh-lan-sessions.json
+```
+
 ## 开发 / Development
 
 ```bash
