@@ -1,0 +1,21 @@
+# dsh-web-lan bundle layer — applied automatically when the package is added
+# with `dsh plugin --profile web add dsh-web-lan` (the dsh plugin command
+# reconciles any dependency that declares dsh.bundle into the profile's
+# bundle stack). No manual cordis.patch.yml editing needed.
+#
+# The row replaces only the webserver row's `config` (dsh-web-app owns the
+# row's name/inject); `insert` adds the lan-access plugin row. The password
+# defaults to '123' and can be overridden with the DSH_LAN_PASSWORD
+# environment variable; once logged in it can also be changed from
+# 设置 → 插件 → 插件配置 (persisted, survives restarts).
+
+- id: webserver
+  config:
+    host: '0.0.0.0'
+    port: !!js ctx.webStartup.port ?? 3080
+
+- insert:
+    - id: lan-access
+      name: 'dsh-web-lan'
+      config:
+        password: !!js process.env.DSH_LAN_PASSWORD ?? '123'
