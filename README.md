@@ -52,7 +52,8 @@ password **`123`** (change it as soon as possible from the settings page).
   本机客户端（单共享密码，无多用户）；
 - 会话 Cookie（`dsh_lan_session`，HttpOnly + SameSite=Strict）持久化到
   `~/.dsh/dsh-lan-sessions.json`，重启不踢人；每 IP 连续 5 次失败锁定 30 秒；
-  **修改密码会立即踢掉所有已登录会话**（泄露的密码一换，旧会话全部失效）；
+  **修改密码会立即踢掉其他所有已登录会话**（执行改密的会话保留，
+  泄露的密码一换，其他旧会话全部失效）；
 - 拦截浏览器实际加载的 `dsh-client-connection` bundle，把 `isLoopback`
   强制为 `true`（**fail-safe**：精确匹配标记串才替换，升级不破坏）；
 - 向 `settings` 服务注册 `lan-access` 命名空间（密码字段 `role('secret')`，

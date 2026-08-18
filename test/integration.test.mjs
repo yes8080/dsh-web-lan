@@ -502,6 +502,45 @@ check("a stored override from a previous session wins over the configured passwo
 	await new Promise((resolve) => srv.close(resolve));
 });
 
+check("the session that changes the password keeps its session; others are kicked", async () => {
+	const srv = createServer((req, res) => {
+		res.writeHead(200, { "content-type": "application/json" });
+		res.end(JSON.stringify({ ok: true }));
+	});
+	const mounted = mountPlugin({ password: "secret", server: srv });
+	await new Promise((resolve) => srv.listen(0, "127.0.0.1", resolve));
+	const p = srv.address().port;
+	const login = async () => {
+		const res = await fetch(`http://127.0.0.1:${p}/login`, {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: "password=secret",
+			redirect: "manual"
+		});
+		return cookieFrom(res);
+	};
+	const authed = (cookie) => fetch(`http://127.0.0.1:${p}/`, { headers: { cookie: `dsh_lan_session=${cookie}` }, redirect: "manual" }).then((r) => r.status);
+
+	// two sessions: the changer (A) and another user (B)
+	const changer = await login();
+	const other = await login();
+	assert.strictEqual(await authed(changer), 200);
+	assert.strictEqual(await authed(other), 200);
+
+	// A writes settings (the gate records A as the last settings writer)
+	await fetch(`http://127.0.0.1:${p}/api/settings.mutate`, {
+		method: "POST",
+		headers: { "content-type": "application/json", cookie: `dsh_lan_session=${changer}` },
+		body: JSON.stringify({ ns: "lan-access", ops: [{ op: "set", path: ["password"], value: "hunter2" }] })
+	});
+	// the provider resolves the new password (as the write would persist it)
+	mounted.settingsRegs.get("lan-access").setResolved({ password: "hunter2" });
+
+	assert.strictEqual(await authed(changer), 200, "the changer keeps its session");
+	assert.strictEqual(await authed(other), 302, "every other session is kicked");
+	await new Promise((resolve) => srv.close(resolve));
+});
+
 check("no settings service composed -> gate keeps the configured password", async () => {
 	const srv = createServer((req, res) => {
 		res.writeHead(200, { "content-type": "text/html" });
