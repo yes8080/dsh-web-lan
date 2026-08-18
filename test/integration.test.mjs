@@ -548,6 +548,7 @@ check("browser half loads under the module loader and registers the lan-access c
 	const factoryResult = captured.factory((spec) => {
 		if (spec === "react") return reactStub;
 		if (spec === "@deepseek-ai/dsh-client-runtime/client") return { createSnapshotStore: storeStub };
+		if (spec === "@deepseek-ai/dsh-client-ui-primitives") return { Button: () => ({}), Input: () => ({}), Pill: () => ({}) };
 		throw new Error(`unexpected require: ${spec}`);
 	});
 
