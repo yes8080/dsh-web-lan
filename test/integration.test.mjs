@@ -461,11 +461,25 @@ check("saving a new password through settings updates the gate immediately", asy
 		redirect: "manual"
 	})).status;
 
+	// an existing session must survive until the password changes...
+	const session = await fetch(`http://127.0.0.1:${p}/login`, {
+		method: "POST",
+		headers: { "content-type": "application/x-www-form-urlencoded" },
+		body: "password=secret",
+		redirect: "manual"
+	});
+	const cookie = cookieFrom(session);
+	const authed = await fetch(`http://127.0.0.1:${p}/`, { headers: { cookie: `dsh_lan_session=${cookie}` } });
+	assert.strictEqual(authed.status, 200, "session works before the change");
+
 	assert.strictEqual(await login("secret"), 302, "configured password works");
 	// the settings provider resolves a new value (as a UI save would persist it)
 	mounted.settingsRegs.get("lan-access").setResolved({ password: "hunter2" });
 	assert.strictEqual(await login("secret"), 401, "old password rejected after change");
 	assert.strictEqual(await login("hunter2"), 302, "new password accepted immediately");
+	// ...and the password change kicks every existing session
+	const kicked = await fetch(`http://127.0.0.1:${p}/`, { headers: { cookie: `dsh_lan_session=${cookie}` }, redirect: "manual" });
+	assert.strictEqual(kicked.status, 302, "old session invalidated by the password change");
 	await new Promise((resolve) => srv.close(resolve));
 });
 
